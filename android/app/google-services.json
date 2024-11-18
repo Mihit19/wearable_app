@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "2535201342",
+    "project_id": "wearableapp-3b954",
+    "storage_bucket": "wearableapp-3b954.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:2535201342:android:96d01ea9dd58d1bc008f6f",
+        "android_client_info": {
+          "package_name": "com.example.wearable_application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXEBnA9Q1OezGXkHIT0DmEj-UquvZM41s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
