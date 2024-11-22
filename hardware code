@@ -1,0 +1,131 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+#include <DHT.h>
+#include <Adafruit_MLX90614.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+
+// WiFi credentials
+#define WIFI_SSID "Aviral's A15"
+#define WIFI_PASSWORD "Angel0409"
+
+// Firebase credentials
+#define API_KEY "AIzaSyAMlah0uEUeN2ebu8phRzXxCXVmc0fHZts"
+#define DATABASE_URL "https://neckbandac-e737b-default-rtdb.asia-southeast1.firebasedatabase.app/"
+
+// DHT11 sensor setup
+#define DHTPIN 18
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
+// Pulse sensor setup
+#define PULSE_PIN 34  // Pulse sensor connected to GPIO34
+int pulseValue = 0;
+
+// Relay module setup
+#define RELAY_PIN1 2  // Relay connected to GPIO25
+#define RELAY_PIN2 4
+#define RELAY_PIN3 5
+#define RELAY_PIN4 7
+
+//#define MXPinSDA 21
+//#define MXPinSCL 19
+
+// Firebase objects
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+
+unsigned long sendDataPrevMillis = 0;
+int sendDataInterval = 10000;  // Send data every 10 seconds
+
+// Thresholds
+float tempThreshold = 30;  // Temperature threshold in Celsius
+
+int pulseThreshold = 50;  // Pulse rate threshold in bpm
+
+void setup() {
+  Serial.begin(115200);
+
+  // Initialize WiFi
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println("\nConnected with IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Initialize Firebase
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
+  auth.user.email = "";
+  auth.user.password = "";
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+
+  // Initialize sensors
+  dht.begin();
+  mlx.begin();
+
+  // Initialize relay pin
+  pinMode(RELAY_PIN1, OUTPUT);
+  pinMode(RELAY_PIN2, OUTPUT);
+  pinMode(RELAY_PIN3, OUTPUT);
+  digitalWrite(RELAY_PIN1, LOW);
+  digitalWrite(RELAY_PIN2, LOW);
+  digitalWrite(RELAY_PIN3, LOW);  // Initially off
+}
+
+void loop() {
+
+  float tempDHT11 = dht.readTemperature();
+  float tempMLX90614 = mlx.readObjectTempC();
+  pulseValue = analogRead(PULSE_PIN);
+
+  // Check for valid readings
+  if (isnan(tempDHT11) || isnan(pulseValue)) {
+    Serial.println("Failed to read from sensors!");
+    return;
+  }
+
+  // Send data to Firebase every 10 seconds
+  if (millis() - sendDataPrevMillis > sendDataInterval) {
+    sendDataPrevMillis = millis();
+
+    // Push data to Firebase
+    Firebase.RTDB.setFloat(&fbdo, "/sensors/tempDHT11", tempDHT11);
+    Firebase.RTDB.setFloat(&fbdo, "/sensors/tempMLX90614", tempMLX90614);
+    Firebase.RTDB.setInt(&fbdo, "/sensors/pulse", pulseValue);
+
+    Serial.println("Data sent to Firebase");
+    Serial.print("Temperature (DHT11): ");
+    Serial.println(tempDHT11);
+    Serial.print("Temperature (MLX90614): ");
+    Serial.println(tempMLX90614);
+    Serial.print("Pulse: ");
+    Serial.println(pulseValue);
+  }
+
+
+  if (tempDHT11 > tempThreshold || pulseValue > pulseThreshold) {
+    Serial.println("Threshold exceeded! Activating Peltier module...");
+    digitalWrite(RELAY_PIN1, HIGH);  // Turn on relay
+    digitalWrite(RELAY_PIN2, HIGH);
+    digitalWrite(RELAY_PIN3, HIGH);
+    delay(10000);
+    digitalWrite(RELAY_PIN1, LOW);  // Turn on relay
+    digitalWrite(RELAY_PIN2, LOW);
+    digitalWrite(RELAY_PIN3, LOW);
+
+  } else {
+    digitalWrite(RELAY_PIN1, LOW);  // Turn on relay
+    digitalWrite(RELAY_PIN2, LOW);
+    digitalWrite(RELAY_PIN3, LOW);  // Turn off relay
+    Serial.println("Threshold not exceeded, Relay OFF");
+  }
+
+  delay(2000);  // Delay for stability
+}
